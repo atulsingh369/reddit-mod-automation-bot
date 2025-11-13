@@ -47,6 +47,7 @@ Typical examples:
 
 ## 📁 Project Structure
 
+'''
 reddit-mod-automation-bot/
 │
 ├── workflows/
@@ -60,6 +61,7 @@ reddit-mod-automation-bot/
 │ └── utils.js
 │
 └── README.md
+'''
 
 ---
 
