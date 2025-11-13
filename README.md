@@ -2,8 +2,7 @@
 
 This project provides a lightweight backend + automation workflow designed to help subreddit moderators automate routine tasks using **n8n** and Reddit’s official API.
 
-The bot focuses strictly on **moderation-related messaging**.  
-It does *not* perform any form of unsolicited outreach, marketing, or user contact outside of actions triggered by subreddit moderators.
+The bot focuses on **moderation-related messaging**.
 
 ---
 
