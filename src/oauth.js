@@ -1,6 +1,6 @@
     async function exchangeCodeForToken(code) {
         const clientId = 'shgh3dbjab99n92bksgusjcb2999cbakkb2789dhmklaoau32baj:1k';
-        const clientSecret = '7228bwhd2g236wjb89bss1b'; // IMPORTANT: This should be handled securely on the server-side
+        const clientSecret = '7228bwhd2g236wjb89bss1b'; 
         const redirectUri = 'http://localhost:5678/oauth/redirect';
         const tokenUrl = 'https://accounts.google.com/o/oauth2/v2/auth/token';
 
@@ -20,7 +20,7 @@
 
         const data = await response.json();
         const accessToken = data.access_token;
-        // Store the access token securely (e.g., in local storage, or send to your backend)
+        
         localStorage.setItem('accessToken', accessToken);
         console.log('Access Token:', accessToken);
     }
