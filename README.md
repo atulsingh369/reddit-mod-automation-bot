@@ -7,7 +7,7 @@ It does *not* perform any form of unsolicited outreach, marketing, or user conta
 
 ---
 
-## 🔧 Purpose
+## Purpose
 
 This bot assists moderators by automating these common tasks:
 
@@ -21,7 +21,7 @@ All messaging is initiated by moderator action or subreddit workflows.
 
 ---
 
-## 🧩 Why n8n?
+## Role of n8n?
 
 Many moderation teams rely on external services (Sheets, Forms, APIs, mod-tools dashboards).  
 This bot integrates **Reddit’s API** with external trigger sources using n8n’s automation features.
@@ -32,25 +32,6 @@ Typical examples:
 - When a mod flags a user for review → bot sends a clarification request  
 - When the subreddit schedules an event → bot sends reminders  
 - When a mod tool updates a sheet → bot sends a follow-up message
-
----
-
-## 🔐 Compliance
-
-This bot is built to comply with Reddit’s:
-
-- **API Terms**  
-- **Data API Terms**  
-- **Responsible Bot Usage Policy**  
-- **Moderation Resources Best Practices**
-
-Key restrictions:
-
-- No unsolicited messaging  
-- No scraping for outreach  
-- No commercial or promotional use  
-- No automated engagement outside mod workflows  
-- Messages only occur *after* moderator action or request
 
 ---
 
@@ -84,13 +65,11 @@ reddit-mod-automation-bot/
 
 ## 📨 Messaging Behavior
 
-Messages are ONLY sent when:
+Messages are sent when:
 - a moderator removes a post  
 - a moderator flags a user  
 - a moderator triggers an automation workflow  
 - the subreddit runs a scheduled event  
-
-There is **no** unsolicited PM, mass messaging, or marketing functionality.
 
 ---
 
