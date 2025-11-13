@@ -35,7 +35,7 @@ Typical examples:
 
 ---
 
-## 🏗️ Tech Stack
+## Tech Stack
 
 - **n8n** (workflow automation)
 - **Node.js** (light backend utility functions)
@@ -45,27 +45,27 @@ Typical examples:
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
-'''
+```
 reddit-mod-automation-bot/
 │
 ├── workflows/
-│ ├── mod-removal-notice.json
-│ ├── rule-reminder.json
-│ └── event-reminder.json
+│   ├── mod-removal-notice.json
+│   ├── rule-reminder.json
+│   └── event-reminder.json
 │
 ├── src/
-│ ├── oauth.js
-│ ├── sendMessage.js
-│ └── utils.js
+│   ├── oauth.js
+│   ├── sendMessage.js
+│   └── utils.js
 │
 └── README.md
-'''
+```
 
 ---
 
-## 📨 Messaging Behavior
+## Messaging Behavior
 
 Messages are sent when:
 - a moderator removes a post  
@@ -75,7 +75,7 @@ Messages are sent when:
 
 ---
 
-## 🚀 How It Works
+## How It Works
 
 1. Moderator performs an action (remove/flag/update)
 2. n8n receives webhook or external trigger
@@ -93,7 +93,7 @@ POST /api/compose
 
 ---
 
-## 🛠️ Setup Instructions
+## Setup Instructions
 
 1. Clone repo  
 2. Install dependencies  
@@ -103,13 +103,13 @@ POST /api/compose
 
 ---
 
-## 📜 License
+## License
 
 MIT License — free for moderation/tooling use.
 
 ---
 
-## 🙋‍♂️ Maintainer
+## Maintainer
 
 **u/AtulSingh369**  
 Building moderation automation tools for small subreddit communities.
