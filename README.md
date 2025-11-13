@@ -47,7 +47,7 @@ Typical examples:
 
 ## 📁 Project Structure
 
-reddit-mod-automation-bot/
+reddit-mod-automation-bot/\n
 │
 ├── workflows/
 │ ├── mod-removal-notice.json
