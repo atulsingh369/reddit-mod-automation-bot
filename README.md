@@ -113,5 +113,5 @@ MIT License — free for moderation/tooling use.
 
 ## Maintainer
 
-**u/AtulSingh369**  
+**AtulSingh369**  
 Building moderation automation tools for small subreddit communities.
