@@ -1,0 +1,1886 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chrome-screenshot/webhook/chrome-screenshot",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -624,
+        -112
+      ],
+      "id": "47b1bf8f-d9c6-4e5c-9772-583f41f8e060",
+      "name": "Webhook",
+      "webhookId": "c8275f6f-40c4-45c1-92b6-b71b165aa6c4"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        352
+      ],
+      "id": "fe93cfd6-dac1-49a6-923c-4935c7d17f12",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code node\n// Combine extraction of body + splitting into two objects\n\nreturn items.flatMap(item => {\n    const body = item.json.body || {};\n\n    // Object 1: timestamp + action_space + user\n    const action_data = {\n        workflow_id: `workflow_${body.workflow_stopped}`,\n        user: body.user,\n        action_space: body.action_space\n    };\n\n    // Object 2: timestamp + state_space + user\n    const state_data = {\n        workflow_id: body.workflow_stopped,\n        user: body.user,\n        state_space: body.state_space\n    };\n\n    return [\n      { json: { type: \"action\", ...action_data } },\n      { json: { type: \"state\", ...state_data } }\n    ];\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -368,
+        32
+      ],
+      "id": "967c942f-1056-48df-9bf7-a5f80ceaa735",
+      "name": "Extract & Divide Data blocks"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo",
+          "mode": "list",
+          "cachedResultName": "State_Action_Entity",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "raw_action_data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Workflow_ID": "={{ $json.Workflow_ID }}",
+            "User_ID": "={{ $json.User_ID }}",
+            "User_Email": "={{ $json.User_Email }}",
+            "Action_Space": "={{JSON.stringify($json.Action_Space, null, 2)}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Workflow_ID",
+              "displayName": "Workflow_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "User_ID",
+              "displayName": "User_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "User_Email",
+              "displayName": "User_Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Action_Space",
+              "displayName": "Action_Space",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        432,
+        336
+      ],
+      "id": "78ebad3e-c103-4c02-86b1-ad77d10b8599",
+      "name": "Append Actions in Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "IYuAESjV4FrNXoJd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- Extract the 'action' type item from input ---\nconst actionItem = items.find(item => item.json.type === \"action\")?.json;\n\nif (!actionItem || !Array.isArray(actionItem.action_space)) {\n  return [];\n}\n\n// Extract user info\nconst userId = actionItem.user?.id || \"\";\nconst userEmail = actionItem.user?.email || \"\";\n\n// --- Process and clean each action ---\nconst indexedActions = actionItem.action_space.map((action, index) => {\n  // For click actions, simplify structure\n  if (action.action === \"click\") {\n    return {\n      action_index: index + 1,\n      action: action.action,\n      visibleText: action.visibleText || null,\n      sourceUrl: action.sourceUrl || null,\n      destinationUrl: action.destinationUrl || null,\n      section_label: action.section_label || null,\n      x: action.x || null,\n      y: action.y || null,\n      timestamp: action.timestamp || null,\n      text: action.resolved?.meta?.text || null\n    };\n  }\n\n  // For non-click actions, keep everything as-is\n  return {\n    action_index: index + 1,\n    ...action\n  };\n});\n\n// --- Custom reorder logic: ensure click comes before navigate ---\n//\n// If a navigate and click share the same sourceUrl, and their timestamps\n// are within 2000ms (2 seconds), the click should appear first.\nconst reorderedActions = [...indexedActions];\n\n// Sort first by timestamp, but allow fine-tuning below\nreorderedActions.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));\n\nfor (let i = 0; i < reorderedActions.length - 1; i++) {\n  const current = reorderedActions[i];\n  const next = reorderedActions[i + 1];\n\n  if (\n    current &&\n    next &&\n    current.action === \"navigate\" &&\n    next.action === \"click\" &&\n    current.sourceUrl &&\n    next.sourceUrl &&\n    current.sourceUrl === next.sourceUrl &&\n    Math.abs((current.timestamp || 0) - (next.timestamp || 0)) <= 2000\n  ) {\n    // Swap navigate and click, so click comes before navigate\n    reorderedActions[i] = next;\n    reorderedActions[i + 1] = current;\n  }\n}\n\n// --- Reindex after reordering ---\nreorderedActions.forEach((a, i) => (a.action_index = i + 1));\n\n// --- Construct the final output for Sheets or database storage ---\nconst output = {\n  json: {\n    Workflow_ID: $input.first().json.workflow_id, // Unique ID for the session\n    User_ID: userId,\n    User_Email: userEmail,\n    Action_Space: reorderedActions\n  }\n};\n\n// --- Return a single structured row ---\nreturn [output];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        224
+      ],
+      "id": "dacf5743-8cc8-408d-9868-ac1d4c55bd6f",
+      "name": "Flatten Action data"
+    },
+    {
+      "parameters": {
+        "jsCode": "const stateItem = items.find(item => item.json.type === \"state\")?.json;\n\nif (!stateItem || !Array.isArray(stateItem.state_space)) {\n  return [];\n}\n\n// Extract useful info once\nconst userEmail = stateItem.user?.email || \"\";\nconst userId = stateItem.user?.id || \"\";\n// Map each state in state_space → separate n8n item\nconst separatedStates = stateItem.state_space.map((state, index) => {\n  return {\n    json: {\n      workflow_id: $input.first().json.workflow_id,\n      isModal: state.isModal ?? false,\n      ...(state.isModal && { modalName: state.modalName ?? null }),\n      state_index: index + 1,\n      user_email: userEmail,\n      user_id: userId,\n      url: state.url,\n      tabId: state.tabId,\n      timestamp: state.timestamp,\n      screenshotUrl: state.screenshotUrl,\n      sectionLabels: state.sectionLabels,\n      visitHistory: state.visitHistory,\n      // Add any future metrics or derived data here if needed\n    }\n  };\n});\n\nreturn separatedStates;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        -112
+      ],
+      "id": "188de95c-20b1-4d0f-84ac-13035a299a9c",
+      "name": "Flatten State"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        64,
+        -112
+      ],
+      "id": "52c39d7b-bf4a-404b-99fd-361b34d16706",
+      "name": "Loop Over States"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "text": "=You are an AI web structure analyzer.\n\nYou are given:\n1. A webpage screenshot (binary image input).\n2. The following contextual JSON object:\n\n{\n  \"state_id\": {{ $json.state_index }},\n  \"url\": \"{{ $json.url }}\",\n  \"sectionLabels\": {{ JSON.stringify($json.sectionLabels, null, 2) }},\n  \"visitHistory\": {{ JSON.stringify($json.visitHistory, null, 2) }},\n  \"user_email\": \"{{ $json.user_email }}\",\n  \"user_id\": \"{{ $json.user_id }}\",\n  \"isModal\": {{ $json.isModal }},\n  {{ ($json.isModal ? { modalName: state.modalName ?? null } : \"\") }}\n}\n\nYour role:\n- Visually analyze the screenshot and interpret the webpage context from both the image and the URL.\n- Adapt behavior based on whether this state represents a page or a modal (which can be inferred by Ismodal is true or false).\n\nRules for processing:\n\n1. If isModal is false, null, or missing:\n\t•\tTreat the screenshot as a full webpage.\n\t•\tFollow the same section-cleaning and naming rules exactly as before.\n\n2. If isModal is true:\n\t•\tTreat the screenshot as representing a modal window only (not the entire page behind it).\n\t•\tFocus exclusively on the modal content visible in the screenshot (ignore the background or blurred areas).\n\t•\tIdentify and clean section names based on visible elements within that modal (e.g., heading, buttons, forms, messages).\n\t•\tThe output sections and section_mapping must refer only to elements inside the modal.\n\t•\tDerive the modal’s purpose and name (e.g., “Login confirmation modal”, “OTP verification modal”, “Payment warning popup”) using text and visual cues in the image.\n\t•\tIf the modal name is already provided in modalName, refine or validate it visually — don’t just repeat it.\n\nShared rules for both pages and modals:\n\n1. Rewrite each section label into a clean, human-readable noun phrase (no more than 5–6 words).\n   - Each should sound like a **named section** or **clearly identifiable area** of a webpage.\n   - Examples:\n    •   \"1. Profile Header\" → \"Profile header section\"\n\t•\t\"2. Media Section\" → \"Media gallery section\"\n\t•\t\"3. Previous Next\" → \"Login options\"\n\t•\t\"4. Unknown Section\" → \"Main content section\"\n\n   - Avoid generic or repetitive names.\n   - Capitalize the first word only.\n   - Remove duplicates or overlapping meanings.\n   - Add the word 'section' at the end of each name, like Login options section, not only Login options.\n\n2.\tCreate a mapping between the original and the cleaned names:\n\tExample:\n\n    {\n      \"1. Media Section\": \"Media gallery section\",\n      \"2. Previous Next\": \"Login options\"\n    }\n\n2.Infer the state name automatically:\n\n- For pages → determine the page name using URL and visible cues (e.g., person name, company name, or page type).\n\n- For modals → determine the modal name using visible text (e.g., “Login verification modal”, “Accept terms popup”).\n\nExamples:\n\n\"Vivek Bharadwaj’s LinkedIn Profile\"\n\n\"Tesla’s Careers Page\"\n\n\"Login confirmation modal\"\n\n\"Payment alert popup\"\n\n   - The state name must always contain the person or company name when possible.\n   - Keep it short (≤6 words) and natural.\n\n3. Include the \"state_id\" exactly as given in the input. It must appear as the first key.\n\n4. Compute the approximate duration using all available visitHistory.duration entries (sum them), convert ms → seconds, and express as a rounded range string (e.g., 15577 → \"15–16 seconds\").\n\nReturn exactly one JSON object in this strict format:\n\n{\n  \"state_id\": {{ $json.state_index }},\n  \"sections\": [\"Login button area section\", \"OTP input section\"],\n  \"isModal\": {{ $json.isModal }},\n  \"section_mapping\": {\n    \"1. Login area\": \"Login button area section\",\n    \"2. Enter OTP\": \"OTP input section\"\n  },\n  \"state\": \"OTP verification modal\",\n  \"duration\": \"9–10 seconds\",\n  \"user_email\": \"{{ $json.user_email }}\",\n  \"user_id\": \"{{ $json.user_id }}\"\n}\n\n\nHard constraints:\n- Always include section_mapping and sections.\n- \"state_id\" must always be present as the first key.\n- Do NOT output markdown code fences.\n- Do NOT include commentary or reasoning.\n- Output valid JSON only.",
+        "inputType": "base64",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        480,
+        -64
+      ],
+      "id": "640ec502-cdd1-4175-b98d-5c1a7dcd145e",
+      "name": "Analyze image",
+      "credentials": {
+        "openAiApi": {
+          "id": "DYqMDH2PnG6IqXVP",
+          "name": "OpenAi (ArcReactor-Temp)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.screenshotUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        288,
+        -64
+      ],
+      "id": "4e257329-c74f-420e-813f-50cf0a02a077",
+      "name": "Preview Image"
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- Get the model's raw response text ---\nconst raw = items[0].json.content || \"\";\n\n// --- Step 1: Remove Markdown formatting like ```json ... ``` ---\nconst cleaned = raw.replace(/```json\\s*|```/g, '').trim();\n\n// --- Step 2: Safely parse into JSON ---\nlet parsed;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (err) {\n  throw new Error(\"❌ Failed to parse model output as JSON: \" + err.message);\n}\n\n// --- Step 3: Normalize field names (optional, in case model returns variations) ---\n\nif (parsed.state_id == null) parsed.state_id = $('Preview Image').first().json.state_index;\n\nconst output = {\n  Workflow_ID: $('Preview Image').first().json.workflow_id,\n  isModal: $('Preview Image').first().json.isModal,\n  State_ID: `state_${$('Preview Image').first().json.state_index}`,\n  Sections: parsed.sections || [],\n  Section_Mapping: parsed.section_mapping || {},\n  State_Name: parsed.state || \"\",\n  Duration: parsed.duration || \"\",\n  User_Email: parsed.user_email || \"\",\n  User_ID: parsed.user_id || \"\",\n  URL: $('Preview Image').first().json.url\n};\n\n// --- Step 4: Return clean object ---\nreturn [{ json: output }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        -64
+      ],
+      "id": "73416707-9f8b-42ca-ae9f-0f1710d729c5",
+      "name": "Parse Response"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo",
+          "mode": "list",
+          "cachedResultName": "State_Action_Entity",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "raw_action_data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo/edit#gid=0"
+        },
+        "options": {
+          "outputFormatting": {
+            "values": {
+              "general": "FORMATTED_VALUE",
+              "date": "FORMATTED_STRING"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -144,
+        400
+      ],
+      "id": "58253675-013f-4742-91bc-4baedcb81f80",
+      "name": "Read for existing Actions",
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "IYuAESjV4FrNXoJd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo",
+          "mode": "list",
+          "cachedResultName": "State_Action_Entity",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1757272485,
+          "mode": "list",
+          "cachedResultName": "semantic_state_entity_data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo/edit#gid=1757272485"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "=Workflow_ID",
+              "lookupValue": "={{ $json.Workflow_ID }}"
+            }
+          ]
+        },
+        "options": {
+          "outputFormatting": {
+            "values": {
+              "general": "FORMATTED_VALUE",
+              "date": "FORMATTED_STRING"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        848,
+        64
+      ],
+      "id": "c2b59dcf-b8ee-4659-8a55-d57d29cd56db",
+      "name": "Read for existing States",
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "IYuAESjV4FrNXoJd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        48,
+        336
+      ],
+      "id": "ba160966-88f2-41e2-a411-39703b4c1edc",
+      "name": "Merge Action Sheets"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1024,
+        -48
+      ],
+      "id": "d8bb60b7-b50f-4f66-a63a-a512bc1665f3",
+      "name": "Merge State Sheets"
+    },
+    {
+      "parameters": {
+        "jsCode": "// items[0] -> new action row\n// items[1..n] -> rows fetched from Sheets (each has .json)\n\nconst newAction = items[0].json;\n\n// Flatten existing rows from Sheets into array\nconst existingFileNames = items\n    .slice(1) // all inputs after first\n    .map(item => item.json.Workflow_ID); // extract Workflow_ID\n\n// Check if new Workflow_ID already exists\nif (existingFileNames.includes(newAction.Workflow_ID)) {\n    // Already exists -> do not append\n    return [];\n}\n\n// Not exists -> return the new row\nreturn [{ json: newAction, pairedItem: { item: 0 } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        336
+      ],
+      "id": "488c2380-d15f-4456-b412-6670eb49042e",
+      "name": "Verify Action to be sent",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- items[0] -> new state row to verify ---\n// --- items[1..n] -> existing rows fetched from Google Sheets ---\n\nconst newState = items[0].json;\n\n// Extract the new state's identifiers\nconst newWorkflowID = newState.Workflow_ID;\nconst newStateID = newState.State_ID;\n\n// Flatten existing rows into an array of objects (each has Workflow_ID and State_ID)\nconst existingStates = items.slice(1).map(item => ({\n  workflow: item.json.Workflow_ID,\n  state: item.json.State_ID\n}));\n\n// Check if a matching Workflow_ID + State_ID pair exists\nconst alreadyExists = existingStates.some(\n  row =>\n    row.workflow === newWorkflowID &&\n    row.state === newStateID\n);\n\n// If found, skip (don't send forward)\nif (alreadyExists) {\n  console.log(`⚠️ State ${newStateID} already exists for ${newWorkflowID} — skipping.`);\n  return [];\n}\n\n// If not found, send this new state forward for appending\nconsole.log(`✅ New state ${newStateID} for ${newWorkflowID} — passing through.`);\nreturn [{ json: newState }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        -48
+      ],
+      "id": "db1041e4-f333-48ed-95c9-9bfeef507d0f",
+      "name": "Verify State to be sent",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo",
+          "mode": "list",
+          "cachedResultName": "State_Action_Entity",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1757272485,
+          "mode": "list",
+          "cachedResultName": "semantic_state_entity_data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo/edit#gid=1757272485"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Workflow_ID": "={{ $json.Workflow_ID }}",
+            "User_ID": "={{ $json.User_ID }}",
+            "User_Email": "={{ $json.User_Email }}",
+            "State_ID": "={{ $json.State_ID }}",
+            "State_Name": "={{ $json.State_Name }}",
+            "Duration": "={{ $json.Duration }}",
+            "Sections": "={{ JSON.stringify($json.Sections, null, 2) }}",
+            "URL": "={{ $json.URL }}",
+            "Sections_Mapping": "={{ JSON.stringify($json.Section_Mapping, null, 2) }}",
+            "isModal": "={{ $json.isModal }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Workflow_ID",
+              "displayName": "Workflow_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "User_ID",
+              "displayName": "User_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "User_Email",
+              "displayName": "User_Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "State_ID",
+              "displayName": "State_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "State_Name",
+              "displayName": "State_Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "isModal",
+              "displayName": "isModal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Duration",
+              "displayName": "Duration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Sections",
+              "displayName": "Sections",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Sections_Mapping",
+              "displayName": "Sections_Mapping",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1408,
+        -48
+      ],
+      "id": "2035d03f-8729-4dce-a01d-4e6761747c22",
+      "name": "Append States in Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "IYuAESjV4FrNXoJd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        944,
+        240
+      ],
+      "id": "8b56d86a-8966-4275-9581-c2a6cd4b34ca",
+      "name": "Merge Actions and States"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo",
+          "mode": "list",
+          "cachedResultName": "State_Action_Entity",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1757272485,
+          "mode": "list",
+          "cachedResultName": "semantic_state_entity_data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo/edit#gid=1757272485"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "=Workflow_ID",
+              "lookupValue": "={{ $('Preview Image').item.json.workflow_id }}"
+            }
+          ]
+        },
+        "options": {
+          "outputFormatting": {
+            "values": {
+              "general": "FORMATTED_VALUE",
+              "date": "FORMATTED_STRING"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        672,
+        144
+      ],
+      "id": "ae9adb6f-a9b5-4c49-99fb-0be98182865c",
+      "name": "Read all States",
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "IYuAESjV4FrNXoJd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo",
+          "mode": "list",
+          "cachedResultName": "State_Action_Entity",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "raw_action_data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Workflow_ID",
+              "lookupValue": "={{ $('Flatten Action data').item.json.Workflow_ID }}"
+            }
+          ]
+        },
+        "options": {
+          "outputFormatting": {
+            "values": {
+              "general": "FORMATTED_VALUE",
+              "date": "FORMATTED_STRING"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        672,
+        336
+      ],
+      "id": "b02da1cc-3712-4f2f-b8b4-a69fc945b2ce",
+      "name": "Read all Actions",
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "IYuAESjV4FrNXoJd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- Input: merged states + actions from Sheets ---\nconst input = items.map(i => i.json);\n\n// --- Separate states and actions ---\nconst states = input.filter(i => i.State_ID && i.URL);\nconst actionsRows = input.filter(i => i.Action_Space);\n\n// --- Parse Actions JSON safely ---\nlet allActions = [];\nfor (const a of actionsRows) {\n  try {\n    const parsed = JSON.parse(a.Action_Space);\n    allActions = allActions.concat(parsed);\n  } catch (err) {\n    console.warn(\"⚠️ Failed to parse Action_Space:\", err);\n  }\n}\n\n// --- Keep only meaningful actions ---\nconst ACCEPTED_ACTIONS = [\n  \"click\", \"repeated_click\", \"type\", \"input\", \"prefill\", \"scroll_start\",\n  \"scroll_path\", \"scroll_end\", \"scroll\", \"navigate\", \"session_start\", \"session_end\",\n  \"modal_appeared\", \"modal_closed\", \"form_submit\", \"text_select\", \"copy\"\n];\n\nlet validActions = allActions.filter(a => ACCEPTED_ACTIONS.includes(a.action));\n\n// --- Sort chronologically ---\nvalidActions.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));\nvalidActions.forEach((a, idx) => (a._newIndex = idx + 1));\n\n// --- Helpers ---\nfunction normalizeUrl(url) {\n  if (!url) return null;\n  try {\n    const u = new URL(url);\n    return (u.origin + u.pathname).replace(/\\/$/, \"\");\n  } catch {\n    return url ? url.trim().replace(/\\/$/, \"\") : null;\n  }\n}\nfunction normalizeTextForMatching(s) {\n  if (!s) return \"\";\n  return s.replace(/^\\s*\\d+\\.\\s*/, \"\").replace(/[\\r\\n]+/g, \" \")\n          .replace(/[^a-zA-Z\\s]/g, \" \")\n          .toLowerCase()\n          .replace(/\\s+/g, \" \")\n          .trim();\n}\nfunction bestSectionMatch(actionLabel, stateSections) {\n  if (!actionLabel || !Array.isArray(stateSections) || !stateSections.length) return null;\n  const actNorm = normalizeTextForMatching(actionLabel);\n  const actWords = actNorm.split(\" \").filter(w => w.length > 1);\n  let best = null, bestScore = 0;\n  for (const sec of stateSections) {\n    const secNorm = normalizeTextForMatching(sec);\n    if (!secNorm) continue;\n    if (secNorm.includes(actNorm) || actNorm.includes(secNorm)) return sec;\n    const secWords = secNorm.split(\" \").filter(w => w.length > 1);\n    const common = actWords.filter(w => secWords.includes(w)).length;\n    const score = common / Math.max(secWords.length, actWords.length);\n    if (score > bestScore) (bestScore = score), (best = sec);\n  }\n  return bestScore >= 0.2 ? best : null;\n}\n\n// --- Build state map ---\nconst stateMap = {};\nfor (const s of states) {\n  const normalized = normalizeUrl(s.URL);\n  let sections = [];\n  try { sections = typeof s.Sections === \"string\" ? JSON.parse(s.Sections) : s.Sections || []; } catch {}\n  let mapping = {};\n  try { mapping = typeof s.Sections_Mapping === \"string\" ? JSON.parse(s.Sections_Mapping) : s.Sections_Mapping || {}; } catch {}\n\n  stateMap[normalized + \"::\" + s.State_ID] = {\n    id: parseInt(String(s.State_ID).replace(/^state_/, \"\"), 10) || null,\n    name: s.State_Name,\n    isModal: String(s.isModal || \"\").toLowerCase() === \"true\",\n    sections,\n    mapping,\n    url: normalized\n  };\n}\n\nfunction findStateByUrl(rawUrl, preferModal = false) {\n  if (!rawUrl) return null;\n  const norm = normalizeUrl(rawUrl);\n  const allMatches = Object.values(stateMap).filter(s => s.url === norm);\n  if (!allMatches.length) return null;\n  if (preferModal) return allMatches.find(s => s.isModal) || allMatches[0];\n  return allMatches.find(s => !s.isModal) || allMatches[0];\n}\n\n// --- Infer input field type from selector ---\nfunction inferFieldFromSelector(selector = \"\", fieldType = \"\") {\n  selector = selector.toLowerCase();\n  fieldType = fieldType.toLowerCase();\n  if (/password|pwd/.test(selector) || fieldType === \"password\") return \"Password input box\";\n  if (/mobile|phone|contact|number/.test(selector)) return \"Phone Number input box\";\n  if (/email/.test(selector)) return \"Email input box\";\n  if (/user|name|login|id/.test(selector)) return \"Username input box\";\n  if (/otp|code/.test(selector)) return \"OTP input box\";\n  return \"Input box\";\n}\n\n// --- Build unified actions ---\nconst unifiedActions = [];\nfor (const action of validActions) {\n  const sourceUrl = action.sourceUrl || action.url || action._pageAtSend || null;\n  let sourceState = findStateByUrl(sourceUrl);\n  if (!sourceState && (action.action === \"modal_appeared\" || action.action === \"modal_closed\")) {\n    sourceState = findStateByUrl(sourceUrl, true);\n  }\n  if (!sourceState) continue;\n\n  const origLabel = action.section_label || (action.section_labels && action.section_labels.join(\" \")) || action.visibleText || action.text || \"\";\n  const mapping = sourceState.mapping || {};\n  let entity =\n    mapping[origLabel] ||\n    Object.entries(mapping).find(([oldKey]) =>\n      normalizeTextForMatching(oldKey) === normalizeTextForMatching(origLabel)\n    )?.[1] ||\n    bestSectionMatch(origLabel, sourceState.sections) ||\n    (origLabel || null);\n  if (entity && /unknown/i.test(entity)) entity = null;\n\n  // Metadata for semantic reasoning\n  let metadata = {};\n  if ([\"click\", \"repeated_click\"].includes(action.action)) {\n    let raw = action.visibleText || action.text || \"\";\n    raw = raw.replace(/\\\\\"/g, '\"').replace(/^\"+|\"+$/g, \"\").trim();\n    metadata = { clicked_text: raw || undefined };\n  } else if ([\"type\", \"prefill\"].includes(action.action)) {\n    const selector = action.selector || \"\";\n    const inferredField = inferFieldFromSelector(selector, action.field_type || \"\");\n    const value = action.value;\n    metadata = { inferred_field: inferredField, typed_value: value || null };\n  }\n\n  unifiedActions.push({\n    user_state_id: sourceState.id,\n    user_state_action: \"\",\n    action: action.action,\n    timestamp: Number(action.timestamp || Date.now()),\n    ...(entity && { entity }),\n    ...(Object.keys(metadata).length && { metadata })\n  });\n}\n\n// --- Sort & link ---\nunifiedActions.sort((a, b) => a.timestamp - b.timestamp);\nunifiedActions.forEach((a, i) => (a.action_id = i + 1));\nfor (let i = 1; i < unifiedActions.length; i++) {\n  unifiedActions[i].previous_action = unifiedActions[i - 1].action_id;\n}\n\n// --- Descriptive phrasing ---\nfunction describeAction(action, entity, state, metadata) {\n  const sectionPart = entity ? ` in ${entity}` : \"\";\n  const statePart = state?.name || \"this page\";\n\n  // --- Modal phrasing ---\n  if ([\"modal_appeared\", \"modal_closed\"].includes(action)) {\n    const modalState = Object.values(stateMap).find(s => s.isModal && s.url === state?.url);\n    const modalName = modalState ? modalState.name.replace(/modal/i, \"\").trim() : null;\n    if (action === \"modal_appeared\") {\n      return modalName\n        ? `A ${modalName} modal appeared on ${statePart}`\n        : `A modal appeared on ${statePart}`;\n    }\n    if (action === \"modal_closed\") {\n      return modalName\n        ? `The ${modalName} modal was closed on ${statePart}`\n        : `The modal was closed on ${statePart}`;\n    }\n  }\n\n  // --- Prefill & Type phrasing with field specificity ---\n  if ([\"prefill\", \"type\"].includes(action)) {\n    const fieldName = metadata?.inferred_field || \"input box\";\n    const lowerState = statePart.toLowerCase();\n\n    if (action === \"prefill\") {\n      if (/login/.test(lowerState))\n        return `The ${fieldName.toLowerCase()} of the login form was prefilled on ${statePart}`;\n      if (/signup|register|registration/.test(lowerState))\n        return `The ${fieldName.toLowerCase()} of the registration form was prefilled on ${statePart}`;\n      return `The ${fieldName.toLowerCase()} was prefilled on ${statePart}`;\n    }\n\n    if (action === \"type\") {\n      const val = metadata?.typed_value || \"\";\n      if (/login/.test(lowerState))\n        return `User typed ${val} in the ${fieldName.toLowerCase()} of the login form on ${statePart}`;\n      if (/signup|register|registration/.test(lowerState))\n        return `User typed ${val} in the ${fieldName.toLowerCase()} of the registration form on ${statePart}`;\n      return `User typed ${val} in the ${fieldName.toLowerCase()} on ${statePart}`;\n    }\n  }\n\n  // --- Form Submit ---\n  if (action === \"form_submit\") {\n    const lowerState = statePart.toLowerCase();\n    if (/login/.test(lowerState)) return `User submitted the login form on ${statePart}`;\n    if (/signup|register|registration/.test(lowerState))\n      return `User submitted the registration form on ${statePart}`;\n    if (/payment|checkout/.test(lowerState))\n      return `User submitted the payment form on ${statePart}`;\n    return `User submitted a form on ${statePart}`;\n  }\n\n  // --- Clicks ---\n  if ([\"click\", \"repeated_click\"].includes(action)) {\n    let clicked = metadata?.clicked_text || \"an element\";\n    clicked = clicked.replace(/\\\\\"/g, '\"').replace(/^\"+|\"+$/g, \"\").trim();\n    if (!clicked.startsWith('\"') && !clicked.endsWith('\"') && clicked.length <= 40)\n      clicked = `\"${clicked}\"`;\n    return `User clicked ${clicked}${sectionPart} on ${statePart}`;\n  }\n\n  // --- Default phrasing ---\n  const base = {\n    navigate: `User navigated to ${statePart}`,\n    session_start: `User started a session on ${statePart}`,\n    session_end: `User ended the session on ${statePart}`,\n    scroll: `User scrolled through ${statePart}`\n  }[action] || `User interacted on ${statePart}`;\n  return base;\n}\n\n// --- Apply phrasing ---\nfor (const a of unifiedActions) {\n  const state = Object.values(stateMap).find(s => s.id === a.user_state_id);\n  a.user_state_action = describeAction(a.action, a.entity, state, a.metadata);\n}\n\n// --- Final Output ---\nreturn [{\n  json: {\n    Workflow_ID: $input.first().json.Workflow_ID,\n    User_ID: $input.first().json.User_ID,\n    User_Email: $input.first().json.User_Email,\n    State_Action_Space: {\n      entity: \"user\",\n      process: \"recording\",\n      state: \"browsing\",\n      action_space: unifiedActions\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        448
+      ],
+      "id": "ac9b0a51-afff-41b9-92b3-01ec9a59bb7a",
+      "name": "Semantic Conversion"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo",
+          "mode": "list",
+          "cachedResultName": "State_Action_Entity",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 443467681,
+          "mode": "list",
+          "cachedResultName": "semantic_state_action_data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo/edit#gid=443467681"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "=Workflow_ID",
+              "lookupValue": "={{ $json.Workflow_ID }}"
+            }
+          ]
+        },
+        "options": {
+          "outputFormatting": {
+            "values": {
+              "general": "FORMATTED_VALUE",
+              "date": "FORMATTED_STRING"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        448,
+        800
+      ],
+      "id": "2a289efb-e8c9-4202-969d-99f801a833a9",
+      "name": "Read for existing State_Action",
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "IYuAESjV4FrNXoJd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- items[0] -> new state row to verify ---\n// --- items[1..n] -> existing rows fetched from Google Sheets ---\n\nconst newStateAction = items[0].json;\n\n// Extract the new state's identifiers\nconst newWorkflowID = newStateAction.Workflow_ID;\n\n// Flatten existing rows into an array of objects (each has Workflow_ID and State_ID)\nconst existingStates = items.slice(1).map(item => ({\n  workflow: item.json.Workflow_ID\n}));\n\n// Check if a matching Workflow_ID + State_ID pair exists\nconst alreadyExists = existingStates.some(\n  row =>\n    row.workflow === newWorkflowID\n);\n\n// If found, skip (don't send forward)\nif (alreadyExists) {\n  return [];\n}\n\nreturn [{ json: newStateAction }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        704
+      ],
+      "id": "7253bf39-be62-4186-b135-43bfef4dcdee",
+      "name": "Verify State_Action to be sent",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        640,
+        704
+      ],
+      "id": "75b7ab12-160a-47fb-8c77-9be7a1229b40",
+      "name": "Merge State_Action Sheet"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo",
+          "mode": "list",
+          "cachedResultName": "State_Action_Entity",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 443467681,
+          "mode": "list",
+          "cachedResultName": "semantic_state_action_data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo/edit#gid=443467681"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Workflow_ID": "={{ $json.Workflow_ID }}",
+            "User_ID": "={{ $json.User_ID }}",
+            "User_Email": "={{ $json.User_Email }}",
+            "State_Action_Space": "={{ JSON.stringify($json.State_Action_Space, null, 2) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Workflow_ID",
+              "displayName": "Workflow_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "User_ID",
+              "displayName": "User_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "User_Email",
+              "displayName": "User_Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "State_Action_Space",
+              "displayName": "State_Action_Space",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1024,
+        704
+      ],
+      "id": "b9bc8fcc-0b9d-4a54-a8c0-d07ee9fa0bb8",
+      "name": "Append State_Action in Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "IYuAESjV4FrNXoJd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = items[0].json.State_Action_Space || {};\nconst actions = data.action_space || [];\n\n// --- Early exit if no actions ---\nif (!actions.length) {\n  return [{\n    json: {\n      Workflow_ID: items[0].json.Workflow_ID || \"unknown_workflow\",\n      User_ID: items[0].json.User_ID || \"unknown_user\",\n      User_Email: items[0].json.User_Email || \"\",\n      State_Action_Space: {\n        entity: \"user\",\n        process: \"idle\",\n        state: \"no_activity\",\n        semantic_transcript: \"No meaningful actions recorded.\",\n        action_space: [],\n        phase_summary: []\n      }\n    }\n  }];\n}\n\nfunction groupByIntent(actions) {\n  const intents = [];\n  let current = { phase: \"Start\", actions: [] };\n\n  for (const act of actions) {\n    const a = act.action;\n    const text = act.user_state_action.toLowerCase();\n    const meta = JSON.stringify(act.metadata || {});\n    const selector = (act.selector || \"\").toLowerCase();\n\n    if (a === \"session_start\") {\n      current = { phase: \"Session Start\", actions: [act] };\n      intents.push(current);\n    } \n    else if (a === \"type\") {\n      if (/password/.test(meta)) {\n        if (!current || current.phase !== \"Login\") {\n          current = { phase: \"Login\", actions: [] };\n          intents.push(current);\n        }\n        act.inferred_context = \"entered password\";\n        current.actions.push(act);\n      } else if (/mobile|phone|contact/.test(meta)) {\n        if (!current || current.phase !== \"Login\") {\n          current = { phase: \"Login\", actions: [] };\n          intents.push(current);\n        }\n        act.inferred_context = \"entered mobile number\";\n        current.actions.push(act);\n      } else if (/otp|code|verify/.test(meta)) {\n        if (!current || current.phase !== \"Verification\") {\n          current = { phase: \"Verification\", actions: [] };\n          intents.push(current);\n        }\n        act.inferred_context = \"entered OTP or verification code\";\n        current.actions.push(act);\n      } else if (/email|username|login/.test(meta)) {\n        if (!current || current.phase !== \"Login\") {\n          current = { phase: \"Login\", actions: [] };\n          intents.push(current);\n        }\n        act.inferred_context = \"entered username or email\";\n        current.actions.push(act);\n      } else if (/search/.test(selector)) {\n        current = { phase: \"Search\", actions: [act] };\n        intents.push(current);\n      } else {\n        act.inferred_context = \"typed some input\";\n      }\n    } \n    else if (a === \"click\" && /login|submit/.test(meta)) {\n      if (!current || current.phase !== \"Login\") {\n        current = { phase: \"Login\", actions: [] };\n        intents.push(current);\n      }\n      current.actions.push(act);\n    } \n    else if (a === \"click\" && /logout|sign out/.test(meta)) {\n      current = { phase: \"Logout\", actions: [act] };\n      intents.push(current);\n    } \n    else if (a === \"click\" && /billing|payment|dashboard|overview|account/.test(text)) {\n      if (!current || current.phase !== \"Exploration\") {\n        current = { phase: \"Exploration\", actions: [] };\n        intents.push(current);\n      }\n      current.actions.push(act);\n    } \n    else if (a === \"session_end\") {\n      current = { phase: \"End\", actions: [act] };\n      intents.push(current);\n    }\n  }\n  return intents;\n}\n\n// --- Generate user-readable script ---\nfunction generateNarrative(intents) {\n  const script = [];\n  for (const block of intents) {\n    const ctx = block.actions.map(a => a.inferred_context).filter(Boolean).join(\", \");\n    switch (block.phase) {\n      case \"Session Start\":\n        script.push(\"User began a new session on the website.\");\n        break;\n      case \"Login\":\n        if (ctx.includes(\"password\") && ctx.includes(\"mobile\"))\n          script.push(\"User entered their mobile number and password to log in.\");\n        else if (ctx.includes(\"password\") && ctx.includes(\"username\"))\n          script.push(\"User entered their username and password to log in.\");\n        else\n          script.push(\"User filled in login credentials and submitted the form.\");\n        break;\n      case \"Verification\":\n        script.push(\"User entered an OTP or verification code for authentication.\");\n        break;\n      case \"Search\":\n        script.push(\"User searched for content or items on the site.\");\n        break;\n      case \"Exploration\":\n        script.push(\"User explored the website, viewing billing, dashboard, or account-related sections.\");\n        break;\n      case \"Logout\":\n        script.push(\"User logged out of the portal.\");\n        break;\n      case \"End\":\n        script.push(\"User ended the browsing session.\");\n        break;\n      default:\n        script.push(\"User interacted with the site.\");\n    }\n  }\n  return script.join(\" \");\n}\n\n// --- Infer dynamic process & state ---\nfunction inferProcessAndState(intents) {\n  const allPhases = intents.map(p => p.phase);\n  let process = \"recording\";\n  let state = \"browsing\";\n\n  if (allPhases.includes(\"Login\")) process = \"authentication\";\n  else if (allPhases.includes(\"Verification\")) process = \"verification\";\n  else if (allPhases.includes(\"Exploration\")) process = \"interaction\";\n  else if (allPhases.includes(\"Search\")) process = \"information_discovery\";\n  else if (allPhases.includes(\"Logout\")) process = \"exit\";\n\n  // state is contextual representation of where user ended up\n  if (allPhases.includes(\"Login\") && allPhases.includes(\"Exploration\"))\n    state = \"active_session\";\n  else if (allPhases.includes(\"Login\") && !allPhases.includes(\"Exploration\"))\n    state = \"login_page\";\n  else if (allPhases.includes(\"Exploration\"))\n    state = \"dashboard_view\";\n  else if (allPhases.includes(\"End\"))\n    state = \"session_closed\";\n  else if (actions.length === 0)\n    state = \"no_activity\";\n\n  return { process, state };\n}\n\n// --- Build transcript ---\nconst intents = groupByIntent(actions);\nconst refinedTranscript = generateNarrative(intents);\nconst { process, state } = inferProcessAndState(intents);\n\n// --- Collect all unique user_state_action strings ---\nconst allUserStates = Array.from(\n  new Set(actions.map(a => a.user_state_action))\n);\n\n// --- Final Output ---\nreturn [{\n  json: {\n    Workflow_ID: items[0].json.Workflow_ID || \"unknown_workflow\",\n    User_ID: items[0].json.User_ID || \"unknown_user\",\n    User_Email: items[0].json.User_Email || \"\",\n    State_Action_Space: {\n      entity: \"user\",\n      process,\n      state,\n      action_space: actions,\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        688
+      ],
+      "id": "5a3c9015-ebff-4199-8988-1deb2ffd32cc",
+      "name": "Refine Transcript with Context"
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- Input from previous node ---\nconst data = items[0].json.State_Action_Space || {};\nconst userStates = data.all_user_states || [];\nconst workflowId = items[0].json.Workflow_ID || \"unknown_workflow\";\nconst semanticSummary = data.semantic_transcript || \"\";\n\n// --- Step 1: Define known human actions manually or dynamically ---\nconst humanActions = [\n  \"Browsed in ggl website, and started recording\",\n  \"Clicked on accept button for cashless security modal\",\n  \"Since, my passwords were preserved for login in my chrome profile, the text input boxes were pre filled.\",\n  \"I clicked on navigation bar, and tried browsing only.\",\n  \"I then, cleared the input box, and re-typed mobile number and password.\",\n  \"Clicked Submit button to navigate to the customer page.\",\n  \"Clicked on dropdown in customer page, for selecting the accounts associated with the customer, to view the payments.\",\n  \"Browsed the graphs and data of payment done for last month gas bill.\",\n  \"Clicked at some numbers, or graphs just for highlighting.\",\n  \"Clicked at logout button in navigation bar.\",\n  \"Again clicked at the accept button for cashless security modal.\",\n  \"Again, Since, my passwords were preserved for login in my chrome profile, the text input boxes were pre filled.\",\n  \"Stopped recording\"\n];\n\n// --- Step 2: Pair human actions with semantic user states ---\nconst pairedRows = [];\n\nconst maxLen = Math.max(humanActions.length, userStates.length);\nfor (let i = 0; i < maxLen; i++) {\n  pairedRows.push({\n    \"HUMAN ACTIONS\": humanActions[i] || \"\",\n    \"SEMANTIC STATE TESTING\": userStates[i] || \"\"\n  });\n}\n\n// --- Step 3: Add contextual metadata for reference ---\nconst summary = {\n  Workflow_ID: workflowId,\n  Process: data.process || \"recording\",\n  State: data.state || \"browsing\",\n  Semantic_Transcript: semanticSummary,\n  Summary_Table: pairedRows\n};\n\n// --- Step 4: Return ready-to-append rows for Google Sheets / Excel ---\nreturn pairedRows.map(row => ({ json: row }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        1056
+      ],
+      "id": "e034f6c4-0ad1-4431-afd6-7d11a040975d",
+      "name": "Generate Summary"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        48,
+        1056
+      ],
+      "id": "04616117-fa54-4eba-8166-84cad1ba0f3f",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "amount": 1
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        496,
+        1072
+      ],
+      "id": "e6deb71e-c51d-459e-8a44-941a1e4bd25f",
+      "name": "Wait",
+      "webhookId": "4884bfcb-c51b-476a-bbb9-52d0e27c557b"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo",
+          "mode": "list",
+          "cachedResultName": "State_Action_Entity",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1304218373,
+          "mode": "list",
+          "cachedResultName": "Sematic testing",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1y9xPQIzHgXPArn9jqggMrB91BMh1YtpdcWOjKiSZBIo/edit#gid=1304218373"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "HUMAN ACTIONS": "={{ $json[\"HUMAN ACTIONS\"] }}",
+            "SEMANTIC STATE TESTING": "={{ $json[\"SEMANTIC STATE TESTING\"] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "HUMAN ACTIONS",
+              "displayName": "HUMAN ACTIONS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "SEMANTIC STATE TESTING",
+              "displayName": "SEMANTIC STATE TESTING",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        288,
+        1072
+      ],
+      "id": "d4852ff3-ee1b-4e27-b8c5-e5f972a42314",
+      "name": "Append Semantic in Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "IYuAESjV4FrNXoJd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- Input from previous node ---\nconst data = items[0].json.State_Action_Space || {};\nconst actions = data.action_space || [];\n\n// --- Sort actions by action_id to ensure sequential consistency ---\nconst sortedActions = actions.sort((a, b) => (a.action_id || 0) - (b.action_id || 0));\n\n// --- Extract all user_state_actions and timestamps ---\nconst allUserStateActions = sortedActions\n  .map(a => a.user_state_action)\n  .filter(Boolean);\n\nconst allTimestamps = sortedActions\n  .map(a => a.timestamp)\n  .filter(ts => ts !== null && ts !== undefined);\n\n// --- Add to output for reuse or inspection ---\nreturn [{\n  json: {\n    Workflow_ID: items[0].json.Workflow_ID,\n    User_ID: items[0].json.User_ID,\n    User_Email: items[0].json.User_Email,\n    Total_Actions: sortedActions.length,\n    All_User_State_Actions: allUserStateActions,\n    All_Timestamps: allTimestamps\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -352,
+        1040
+      ],
+      "id": "b4e0c295-50d6-43e7-975e-1fab54b34dc8",
+      "name": "Extarct user_state_actions"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Merge Actions and States",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Actions and States",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Extract & Divide Data blocks": {
+      "main": [
+        [
+          {
+            "node": "Flatten Action data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read for existing Actions",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Flatten State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Actions in Sheet": {
+      "main": [
+        [
+          {
+            "node": "Read all Actions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flatten Action data": {
+      "main": [
+        [
+          {
+            "node": "Merge Action Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flatten State": {
+      "main": [
+        [
+          {
+            "node": "Loop Over States",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over States": {
+      "main": [
+        [
+          {
+            "node": "Read all States",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preview Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze image": {
+      "main": [
+        [
+          {
+            "node": "Parse Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preview Image": {
+      "main": [
+        [
+          {
+            "node": "Analyze image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Response": {
+      "main": [
+        [
+          {
+            "node": "Merge State Sheets",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read for existing States",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read for existing Actions": {
+      "main": [
+        [
+          {
+            "node": "Merge Action Sheets",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Read for existing States": {
+      "main": [
+        [
+          {
+            "node": "Merge State Sheets",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Action Sheets": {
+      "main": [
+        [
+          {
+            "node": "Verify Action to be sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge State Sheets": {
+      "main": [
+        [
+          {
+            "node": "Verify State to be sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Action to be sent": {
+      "main": [
+        [
+          {
+            "node": "Append Actions in Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify State to be sent": {
+      "main": [
+        [
+          {
+            "node": "Append States in Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append States in Sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over States",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Actions and States": {
+      "main": [
+        [
+          {
+            "node": "Semantic Conversion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read all States": {
+      "main": [
+        [
+          {
+            "node": "Merge Actions and States",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read all Actions": {
+      "main": [
+        [
+          {
+            "node": "Merge Actions and States",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Semantic Conversion": {
+      "main": [
+        [
+          {
+            "node": "Refine Transcript with Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read for existing State_Action": {
+      "main": [
+        [
+          {
+            "node": "Merge State_Action Sheet",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Verify State_Action to be sent": {
+      "main": [
+        [
+          {
+            "node": "Append State_Action in Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge State_Action Sheet": {
+      "main": [
+        [
+          {
+            "node": "Verify State_Action to be sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refine Transcript with Context": {
+      "main": [
+        [
+          {
+            "node": "Read for existing State_Action",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge State_Action Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Summary": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Append Semantic in Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Semantic in Sheet": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "Webhook": [
+      {
+        "headers": {
+          "host": "sung-untrailerable-carefully.ngrok-free.dev",
+          "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+          "content-length": "9789",
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "accept-language": "en-US,en;q=0.9",
+          "content-type": "application/json",
+          "cookie": "rl_page_init_referrer=RudderEncrypt%3AU2FsdGVkX1%2B2cIAs0FyJ9dl6xWVghHDteBsMTpYCXsY%3D; rl_page_init_referring_domain=RudderEncrypt%3AU2FsdGVkX1%2BSTgTKtptdBi0qVoUcCNslDZUYOVqSP9w%3D; rl_anonymous_id=RudderEncrypt%3AU2FsdGVkX187gV4wMfzgldNWtYkSHWASP11k1QfEA%2F3Km%2Fl5EYjgS7MNHcI%2BNt12%2BkXf9Bb33xuiQWvmJITpdg%3D%3D; rl_user_id=RudderEncrypt%3AU2FsdGVkX1%2Bay6bvaG9j2LZwrNJAhRYN7KsRXwPQ7JNHcf%2FLcIvAP9ON7qLIWyFwSWUZQRuzfENk%2BMYMzNPjVAqu%2FeqFKFPE61J1GuKjdOIh5yZcSWOcilxe8rZqlh0JsJsqzcQhb1k6GG9awJe4K9WkQsBJQzsyZeJgZscUkVQ%3D; rl_trait=RudderEncrypt%3AU2FsdGVkX1%2Bbm6FkrqKCnjPyJ57oQ%2BaNCOa2IOQo228jHhLQTYnM3SYwgE0y5JtuIAMZ1Uucm%2Fz%2BOm7GayQET1mCopXNLc%2B%2F5tDWrcuDH%2F7hyEmlGAf21rVhrlOKWHWU8Rb%2Fykk4yEqt5whk9KiIb%2B5JrsbfJTZb%2BCY%2BtfXW25E%3D; rl_session=RudderEncrypt%3AU2FsdGVkX19Ju%2BYUvmepj8oFYkX6D7DINNgx0FtAWCe7dXuWH2hyZj5Ymjkzrak9GOwtv2OY4KryH653j1HbnUgCShtQFIDHJ%2F3PoXgIu8gMkQ7KQQ3ldBdIUbmOIUmKq0jWDz4LcUkWjsUIQA%2FQNQ%3D%3D; ph_phc_4URIAm1uYfJO7j8kWSe0J8lc8IqnstRLS7Jx8NcakHo_posthog=%7B%22distinct_id%22%3A%22c33ae80582838b3b98442df90461b31a6c5c881372c4412924f512290076ba6c%2336a40664-5ae8-4a53-9d45-45630dda6c69%22%2C%22%24sesid%22%3A%5B1761222676361%2C%22019a110d-4f8a-7f85-bfb2-598a5b2105e5%22%2C1761222676361%5D%2C%22%24epp%22%3Atrue%2C%22%24initial_person_info%22%3A%7B%22r%22%3A%22%24direct%22%2C%22u%22%3A%22https%3A%2F%2Fsung-untrailerable-carefully.ngrok-free.dev%2Fsettings%2Fusage%3Fkey%3D0374adc1-1f74-4c55-9009-8dd8ab993b95%22%7D%7D",
+          "origin": "chrome-extension://imildnekddkgmkpkjhahdagafjcphpkc",
+          "priority": "u=1, i",
+          "sec-fetch-dest": "empty",
+          "sec-fetch-mode": "cors",
+          "sec-fetch-site": "none",
+          "sec-fetch-storage-access": "active",
+          "x-forwarded-for": "2405:201:6009:d1d7:b03f:d89a:a317:d346",
+          "x-forwarded-host": "sung-untrailerable-carefully.ngrok-free.dev",
+          "x-forwarded-proto": "https"
+        },
+        "params": {},
+        "query": {},
+        "body": {
+          "workflow_started": 1761749658172,
+          "workflow_stopped": 1761749763684,
+          "workflow_duration": 105512,
+          "state_space": [
+            {
+              "url": "https://www.gglengage.com/",
+              "sectionLabels": [
+                "1. Unknown Section",
+                "2. CAUTION NOTICE - BEWARE OF FRAUDULENT CALL FOR DUE PAYMENT ×"
+              ],
+              "screenshotUrl": "https://i.ibb.co/sdpWLq0d/e60f7bfd8d24.jpg",
+              "tabId": 185299349,
+              "timestamp": 1761749667016,
+              "visitHistory": [
+                {
+                  "entryTime": 1761749667016,
+                  "exitTime": 1761749676192,
+                  "duration": 9176
+                }
+              ]
+            },
+            {
+              "url": "https://www.gglengage.com/login.aspx",
+              "sectionLabels": [
+                "1. Green Gas Limited Cashless Notification. Please Click Accept To Enter GGL Engage",
+                "2. Unknown Section"
+              ],
+              "screenshotUrl": "https://i.ibb.co/jZB8B64m/4fa84ffca0b2.jpg",
+              "tabId": 185299349,
+              "timestamp": 1761749682702,
+              "modal": "Unknown Modal",
+              "isModal": true,
+              "modalName": "Unknown Modal",
+              "visitHistory": [
+                {
+                  "entryTime": 1761749682702,
+                  "exitTime": null,
+                  "duration": null
+                },
+                {
+                  "entryTime": 1761749684614,
+                  "exitTime": null,
+                  "duration": null
+                },
+                {
+                  "entryTime": 1761749739733,
+                  "exitTime": null,
+                  "duration": null
+                },
+                {
+                  "entryTime": 1761749743891,
+                  "exitTime": null,
+                  "duration": null
+                }
+              ]
+            },
+            {
+              "url": "https://www.gglengage.com/login.aspx",
+              "sectionLabels": [
+                "1. Media Section",
+                "2. Previous Next"
+              ],
+              "screenshotUrl": "https://i.ibb.co/qTVf1T1/d53ec8a42479.jpg",
+              "tabId": 185299349,
+              "timestamp": 1761749687631,
+              "modal": null,
+              "isModal": false,
+              "modalName": "Unknown Modal",
+              "visitHistory": [
+                {
+                  "entryTime": 1761749687631,
+                  "exitTime": 1761749695664,
+                  "duration": 8033
+                },
+                {
+                  "entryTime": 1761749751499,
+                  "exitTime": null,
+                  "duration": null
+                }
+              ]
+            },
+            {
+              "url": "https://www.gglengage.com/CustomerDashboard.aspx",
+              "sectionLabels": [
+                "1. Current Bill",
+                "2. Quick Links",
+                "3. Bill DateN/A CRN 510070100010174 510070100010291 Due DateN/A",
+                "4. Payable Amount",
+                "5. Unknown Section",
+                "6. Previous Bill",
+                "7. Account Statement Previous Bill Connection 510070100010174 510070100010291"
+              ],
+              "screenshotUrl": "https://i.ibb.co/XrR7vSLw/b54848c2bb89.jpg",
+              "tabId": 185299349,
+              "timestamp": 1761749704088,
+              "visitHistory": [
+                {
+                  "entryTime": 1761749704088,
+                  "exitTime": 1761749737254,
+                  "duration": 33166
+                }
+              ]
+            }
+          ],
+          "action_space": [
+            {
+              "action": "session_start",
+              "timestamp": 1761749658172,
+              "url": "https://www.gglengage.com/",
+              "meta": {
+                "message": "Recording session started"
+              }
+            },
+            {
+              "action": "screenshot_full",
+              "tabId": 185299349,
+              "timestamp": 1761749667016,
+              "screenshot": "https://i.ibb.co/sdpWLq0d/e60f7bfd8d24.jpg"
+            },
+            {
+              "action": "navigate",
+              "sourceUrl": "https://www.gglengage.com/",
+              "destinationUrl": "https://www.gglengage.com/login.aspx",
+              "timestamp": 1761749676126,
+              "_instanceId": "1761749655344-2594",
+              "_pageAtSend": "https://www.gglengage.com/",
+              "element_type": null,
+              "input_type": null,
+              "section_label": "Unknown Section",
+              "url": "https://www.gglengage.com/"
+            },
+            {
+              "action": "click",
+              "visibleText": "OK",
+              "section_label": "1. Unknown Section",
+              "x": 980,
+              "y": 732,
+              "timestamp": 1761749676126,
+              "sourceUrl": "https://www.gglengage.com/",
+              "destinationUrl": "https://www.gglengage.com/login.aspx",
+              "element_type": "a",
+              "input_type": null,
+              "_instanceId": "1761749655344-2594",
+              "_pageAtSend": "https://www.gglengage.com/",
+              "url": "https://www.gglengage.com/"
+            },
+            {
+              "action": "section_duration",
+              "url": "https://www.gglengage.com/",
+              "timestamp": 1761749676177,
+              "durations": {
+                "1. Unknown Section": {
+                  "totalTimeSpent": 8986
+                },
+                "2. CAUTION NOTICE - BEWARE OF FRAUDULENT CALL FOR DUE PAYMENT ×": {
+                  "totalTimeSpent": 8986
+                }
+              },
+              "_instanceId": "1761749655344-2594",
+              "_pageAtSend": "https://www.gglengage.com/",
+              "element_type": null,
+              "input_type": null,
+              "section_label": "Unknown Section"
+            },
+            {
+              "action": "modal_appeared",
+              "url": "https://www.gglengage.com/login.aspx",
+              "timestamp": 1761749676585,
+              "tabId": 185299349,
+              "modal_name": "Unknown Modal",
+              "section_labels": [
+                "1. Green Gas Limited Cashless Notification. Please Click Accept To Enter GGL Engage",
+                "2. Unknown Section"
+              ],
+              "isModal": true
+            },
+            {
+              "action": "prefill",
+              "selector": "#txtMobileNo",
+              "field_type": "text",
+              "value": null,
+              "timestamp": 1761749677617,
+              "sourceUrl": "https://www.gglengage.com/login.aspx",
+              "_instanceId": "1761749676189-3236",
+              "element_type": null,
+              "input_type": null,
+              "section_label": "Unknown Section",
+              "url": "https://www.gglengage.com/login.aspx"
+            },
+            {
+              "action": "prefill",
+              "selector": "#txtPassword",
+              "field_type": "password",
+              "value": "****",
+              "timestamp": 1761749677617,
+              "sourceUrl": "https://www.gglengage.com/login.aspx",
+              "_instanceId": "1761749676189-3236",
+              "element_type": null,
+              "input_type": null,
+              "section_label": "Unknown Section",
+              "url": "https://www.gglengage.com/login.aspx"
+            },
+            {
+              "action": "screenshot_full",
+              "tabId": 185299349,
+              "timestamp": 1761749682702,
+              "screenshot": "https://i.ibb.co/gZgCcL8d/a20c7acbf2a7.jpg",
+              "modal": "Unknown Modal"
+            },
+            {
+              "action": "click",
+              "visibleText": "ACCEPT",
+              "section_label": "Unknown Section",
+              "x": 615,
+              "y": 714,
+              "timestamp": 1761749684829,
+              "sourceUrl": "https://www.gglengage.com/login.aspx",
+              "destinationUrl": null,
+              "element_type": "button",
+              "input_type": null,
+              "_instanceId": "1761749676189-3236",
+              "_pageAtSend": "https://www.gglengage.com/login.aspx",
+              "url": "https://www.gglengage.com/login.aspx"
+            },
+            {
+              "action": "modal_closed",
+              "url": "https://www.gglengage.com/login.aspx",
+              "timestamp": 1761749685154,
+              "tabId": 185299349,
+              "modal_name": "Unknown Modal",
+              "section_labels": [
+                "1. Media Section",
+                "2. Previous Next"
+              ],
+              "isModal": true
+            },
+            {
+              "action": "type",
+              "selector": "#txtMobileNo",
+              "field_type": "text",
+              "value": "7318203243",
+              "timestamp": 1761749685774,
+              "url": "https://www.gglengage.com/login.aspx",
+              "user_initiated": true,
+              "_instanceId": "1761749676189-3236",
+              "_pageAtSend": "https://www.gglengage.com/login.aspx",
+              "element_type": null,
+              "input_type": null,
+              "section_label": "Unknown Section"
+            },
+            {
+              "action": "screenshot_full",
+              "tabId": 185299349,
+              "timestamp": 1761749687631,
+              "screenshot": "https://i.ibb.co/r2JVWRkL/b2c584784ed5.jpg",
+              "modal_closed": true
+            },
+            {
+              "action": "form_submit",
+              "form_action": "https://www.gglengage.com/login.aspx",
+              "method": "POST",
+              "fields": [
+                {
+                  "name": "__EVENTTARGET",
+                  "type": "hidden"
+                },
+                {
+                  "name": "__EVENTARGUMENT",
+                  "type": "hidden"
+                },
+                {
+                  "name": "__LASTFOCUS",
+                  "type": "hidden"
+                },
+                {
+                  "name": "__VIEWSTATE",
+                  "type": "hidden"
+                },
+                {
+                  "name": "__VIEWSTATEGENERATOR",
+                  "type": "hidden"
+                },
+                {
+                  "name": "__EVENTVALIDATION",
+                  "type": "hidden"
+                },
+                {
+                  "name": "RadioLogin",
+                  "type": "radio"
+                },
+                {
+                  "name": "RadioLogin",
+                  "type": "radio"
+                },
+                {
+                  "name": "RadioCustomer",
+                  "type": "radio"
+                },
+                {
+                  "name": "RadioCustomer",
+                  "type": "radio"
+                },
+                {
+                  "name": "txtUserName",
+                  "type": "text"
+                },
+                {
+                  "name": "txtMobileNo",
+                  "type": "text"
+                },
+                {
+                  "name": "txtCID",
+                  "type": "text"
+                },
+                {
+                  "name": "txtPassword",
+                  "type": "password"
+                },
+                {
+                  "name": "btnsubmit",
+                  "type": "submit"
+                },
+                {
+                  "name": "Button1",
+                  "type": "submit"
+                },
+                {
+                  "name": "txtValue",
+                  "type": "text"
+                }
+              ],
+              "trigger": "submit_button",
+              "timestamp": 1761749695460,
+              "url": "https://www.gglengage.com/login.aspx",
+              "_instanceId": "1761749676189-3236",
+              "_pageAtSend": "https://www.gglengage.com/login.aspx",
+              "element_type": null,
+              "input_type": null,
+              "section_label": "Unknown Section"
+            },
+            {
+              "action": "navigate",
+              "sourceUrl": "https://www.gglengage.com/login.aspx",
+              "destinationUrl": "https://www.gglengage.com/CustomerDashboard.aspx",
+              "timestamp": 1761749704088,
+              "tabId": 185299349
+            },
+            {
+              "action": "screenshot_full",
+              "tabId": 185299349,
+              "timestamp": 1761749704088,
+              "screenshot": "https://i.ibb.co/XrR7vSLw/b54848c2bb89.jpg"
+            },
+            {
+              "action": "click",
+              "visibleText": "510070100010174\n510070100010291",
+              "section_label": "1. Current Bill",
+              "x": 426,
+              "y": 291,
+              "timestamp": 1761749722976,
+              "sourceUrl": "https://www.gglengage.com/CustomerDashboard.aspx",
+              "destinationUrl": "https://www.gglengage.com/CustomerDashboard.aspx",
+              "element_type": "select",
+              "input_type": null,
+              "_instanceId": "1761749695667-6670",
+              "_pageAtSend": "https://www.gglengage.com/CustomerDashboard.aspx",
+              "url": "https://www.gglengage.com/CustomerDashboard.aspx"
+            },
+            {
+              "action": "section_duration",
+              "url": "https://www.gglengage.com/CustomerDashboard.aspx",
+              "timestamp": 1761749725195,
+              "durations": {
+                "1. Current Bill": {
+                  "totalTimeSpent": 10867
+                },
+                "2. Quick Links": {
+                  "totalTimeSpent": 10867
+                },
+                "3. Bill DateN/A CRN 510070100010174 510070100010291 Due DateN/A": {
+                  "totalTimeSpent": 10867
+                },
+                "4. Payable Amount": {
+                  "totalTimeSpent": 10867
+                },
+                "5. Unknown Section": {
+                  "totalTimeSpent": 10867
+                },
+                "6. Previous Bill": {
+                  "totalTimeSpent": 10867
+                },
+                "7. Account Statement Previous Bill Connection 510070100010174 510070100010291": {
+                  "totalTimeSpent": 10867
+                }
+              },
+              "_instanceId": "1761749695667-6670",
+              "_pageAtSend": "https://www.gglengage.com/CustomerDashboard.aspx",
+              "element_type": null,
+              "input_type": null,
+              "section_label": "Unknown Section"
+            },
+            {
+              "action": "modal_appeared",
+              "url": "https://www.gglengage.com/login.aspx",
+              "timestamp": 1761749737636,
+              "tabId": 185299349,
+              "modal_name": "Unknown Modal",
+              "section_labels": [
+                "1. Green Gas Limited Cashless Notification. Please Click Accept To Enter GGL Engage",
+                "2. Unknown Section"
+              ],
+              "isModal": true
+            },
+            {
+              "action": "screenshot_full",
+              "tabId": 185299349,
+              "timestamp": 1761749739733,
+              "screenshot": "https://i.ibb.co/jZB8B64m/4fa84ffca0b2.jpg",
+              "modal": "Unknown Modal"
+            },
+            {
+              "action": "navigate",
+              "sourceUrl": "https://www.gglengage.com/CustomerDashboard.aspx",
+              "destinationUrl": "https://www.gglengage.com/login.aspx",
+              "timestamp": 1761749743891,
+              "tabId": 185299349
+            },
+            {
+              "action": "click",
+              "visibleText": "ACCEPT",
+              "section_label": "Unknown Section",
+              "x": 602,
+              "y": 705,
+              "timestamp": 1761749748747,
+              "sourceUrl": "https://www.gglengage.com/login.aspx",
+              "destinationUrl": null,
+              "element_type": "button",
+              "input_type": null,
+              "_instanceId": "1761749737256-4491",
+              "_pageAtSend": "https://www.gglengage.com/login.aspx",
+              "url": "https://www.gglengage.com/login.aspx"
+            },
+            {
+              "action": "modal_closed",
+              "url": "https://www.gglengage.com/login.aspx",
+              "timestamp": 1761749749072,
+              "tabId": 185299349,
+              "modal_name": "Unknown Modal",
+              "section_labels": [
+                "1. Media Section",
+                "2. Previous Next"
+              ],
+              "isModal": true
+            },
+            {
+              "action": "screenshot_full",
+              "tabId": 185299349,
+              "timestamp": 1761749751499,
+              "screenshot": "https://i.ibb.co/qTVf1T1/d53ec8a42479.jpg",
+              "modal_closed": true
+            },
+            {
+              "action": "session_end",
+              "timestamp": 1761749763684,
+              "url": "https://www.gglengage.com/login.aspx",
+              "meta": {
+                "message": "Recording session ended"
+              }
+            },
+            {
+              "action": "section_duration",
+              "url": "https://www.gglengage.com/",
+              "timestamp": 1761749764891,
+              "durations": {
+                "1. Unknown Section": {
+                  "totalTimeSpent": 8986
+                },
+                "2. CAUTION NOTICE - BEWARE OF FRAUDULENT CALL FOR DUE PAYMENT ×": {
+                  "totalTimeSpent": 8986
+                }
+              }
+            }
+          ],
+          "user": {
+            "email": null,
+            "id": "local-1761749661490"
+          }
+        },
+        "webhookUrl": "https://sung-untrailerable-carefully.ngrok-free.dev/webhook/chrome-screenshot/webhook/chrome-screenshot",
+        "executionMode": "production"
+      }
+    ],
+    "Analyze image": [
+      {
+        "content": "```json\n{\n  \"state_id\": 1,\n  \"sections\": [\"Main content section\", \"Fraudulent notice section\"],\n  \"isModal\": false,\n  \"section_mapping\": {\n    \"1. Unknown Section\": \"Main content section\",\n    \"2. CAUTION NOTICE - BEWARE OF FRAUDULENT CALL FOR DUE PAYMENT ×\": \"Fraudulent notice section\"\n  },\n  \"state\": \"Green Gas Limited homepage\",\n  \"duration\": \"9–10 seconds\",\n  \"user_email\": \"\",\n  \"user_id\": \"local-1761749661490\"\n}\n```"
+      }
+    ],
+    "Parse Response": [
+      {
+        "Workflow_ID": "workflow_1761749763684",
+        "isModal": false,
+        "State_ID": "state_1",
+        "Sections": [
+          "Main content section",
+          "Fraudulent notice section"
+        ],
+        "Section_Mapping": {
+          "1. Unknown Section": "Main content section",
+          "2. CAUTION NOTICE - BEWARE OF FRAUDULENT CALL FOR DUE PAYMENT ×": "Fraudulent notice section"
+        },
+        "State_Name": "Green Gas Limited homepage",
+        "Duration": "9–10 seconds",
+        "User_Email": "",
+        "User_ID": "local-1761749661490",
+        "URL": "https://www.gglengage.com/"
+      }
+    ],
+    "Merge Actions and States": [
+      {
+        "row_number": 30,
+        "Workflow_ID": "workflow_1761749763684",
+        "User_ID": "local-1761749661490",
+        "User_Email": "",
+        "State_ID": "state_1",
+        "URL": "https://www.gglengage.com/",
+        "State_Name": "Green Gas Limited webpage",
+        "isModal": "FALSE",
+        "Duration": "9–10 seconds",
+        "Sections": "[\n  \"Company header section\",\n  \"Fraud warning section\"\n]",
+        "Sections_Mapping": "{\n  \"1. Unknown Section\": \"Company header section\",\n  \"2. CAUTION NOTICE - BEWARE OF FRAUDULENT CALL FOR DUE PAYMENT ×\": \"Fraud warning section\"\n}"
+      },
+      {
+        "row_number": 31,
+        "Workflow_ID": "workflow_1761749763684",
+        "User_ID": "local-1761749661490",
+        "User_Email": "",
+        "State_ID": "state_2",
+        "URL": "https://www.gglengage.com/login.aspx",
+        "State_Name": "Cashless notification modal",
+        "isModal": "TRUE",
+        "Duration": "8–9 seconds",
+        "Sections": "[\n  \"Cashless notification section\",\n  \"Warning message section\"\n]",
+        "Sections_Mapping": "{\n  \"1. Green Gas Limited Cashless Notification. Please Click Accept To Enter GGL Engage\": \"Cashless notification section\",\n  \"2. Unknown Section\": \"Warning message section\"\n}"
+      },
+      {
+        "row_number": 32,
+        "Workflow_ID": "workflow_1761749763684",
+        "User_ID": "local-1761749661490",
+        "User_Email": "",
+        "State_ID": "state_3",
+        "URL": "https://www.gglengage.com/login.aspx",
+        "State_Name": "Green Gas Limited login page",
+        "isModal": "FALSE",
+        "Duration": "8–9 seconds",
+        "Sections": "[\n  \"Media gallery section\",\n  \"Login options section\"\n]",
+        "Sections_Mapping": "{\n  \"1. Media Section\": \"Media gallery section\",\n  \"2. Previous Next\": \"Login options section\"\n}"
+      },
+      {
+        "row_number": 33,
+        "Workflow_ID": "workflow_1761749763684",
+        "User_ID": "local-1761749661490",
+        "User_Email": "",
+        "State_ID": "state_4",
+        "URL": "https://www.gglengage.com/CustomerDashboard.aspx",
+        "State_Name": "Green Gas Limited customer dashboard",
+        "isModal": "FALSE",
+        "Duration": "33–34 seconds",
+        "Sections": "[\n  \"Current bill section\",\n  \"Quick links section\",\n  \"Due date details section\",\n  \"Payable amount section\",\n  \"Payment summary section\",\n  \"Previous bill section\",\n  \"Account statement section\",\n  \"Account details grid section\"\n]",
+        "Sections_Mapping": "{\n  \"1. Current Bill\": \"Current bill section\",\n  \"2. Quick Links\": \"Quick links section\",\n  \"3. Bill DateN/A CRN 510070100010174 510070100010291 Due DateN/A\": \"Due date details section\",\n  \"4. Payable Amount\": \"Payable amount section\",\n  \"5. Unknown Section\": \"Payment summary section\",\n  \"6. Previous Bill\": \"Previous bill section\",\n  \"7. Account Statement Previous Bill Connection 510070100010174 510070100010291\": \"Account statement section\"\n}"
+      },
+      {
+        "row_number": 14,
+        "Workflow_ID": "workflow_1761749763684",
+        "User_ID": "local-1761749661490",
+        "User_Email": "",
+        "Action_Space": "[\n  {\n    \"action_index\": 1,\n    \"action\": \"session_start\",\n    \"timestamp\": 1761749658172,\n    \"url\": \"https://www.gglengage.com/\",\n    \"meta\": {\n      \"message\": \"Recording session started\"\n    }\n  },\n  {\n    \"action_index\": 2,\n    \"action\": \"screenshot_full\",\n    \"tabId\": 185299349,\n    \"timestamp\": 1761749667016,\n    \"screenshot\": \"https://i.ibb.co/sdpWLq0d/e60f7bfd8d24.jpg\"\n  },\n  {\n    \"action_index\": 3,\n    \"action\": \"click\",\n    \"visibleText\": \"OK\",\n    \"sourceUrl\": \"https://www.gglengage.com/\",\n    \"destinationUrl\": \"https://www.gglengage.com/login.aspx\",\n    \"section_label\": \"1. Unknown Section\",\n    \"x\": 980,\n    \"y\": 732,\n    \"timestamp\": 1761749676126,\n    \"text\": null\n  },\n  {\n    \"action_index\": 4,\n    \"action\": \"navigate\",\n    \"sourceUrl\": \"https://www.gglengage.com/\",\n    \"destinationUrl\": \"https://www.gglengage.com/login.aspx\",\n    \"timestamp\": 1761749676126,\n    \"_instanceId\": \"1761749655344-2594\",\n    \"_pageAtSend\": \"https://www.gglengage.com/\",\n    \"element_type\": null,\n    \"input_type\": null,\n    \"section_label\": \"Unknown Section\",\n    \"url\": \"https://www.gglengage.com/\"\n  },\n  {\n    \"action_index\": 5,\n    \"action\": \"section_duration\",\n    \"url\": \"https://www.gglengage.com/\",\n    \"timestamp\": 1761749676177,\n    \"durations\": {\n      \"1. Unknown Section\": {\n        \"totalTimeSpent\": 8986\n      },\n      \"2. CAUTION NOTICE - BEWARE OF FRAUDULENT CALL FOR DUE PAYMENT ×\": {\n        \"totalTimeSpent\": 8986\n      }\n    },\n    \"_instanceId\": \"1761749655344-2594\",\n    \"_pageAtSend\": \"https://www.gglengage.com/\",\n    \"element_type\": null,\n    \"input_type\": null,\n    \"section_label\": \"Unknown Section\"\n  },\n  {\n    \"action_index\": 6,\n    \"action\": \"modal_appeared\",\n    \"url\": \"https://www.gglengage.com/login.aspx\",\n    \"timestamp\": 1761749676585,\n    \"tabId\": 185299349,\n    \"modal_name\": \"Unknown Modal\",\n    \"section_labels\": [\n      \"1. Green Gas Limited Cashless Notification. Please Click Accept To Enter GGL Engage\",\n      \"2. Unknown Section\"\n    ],\n    \"isModal\": true\n  },\n  {\n    \"action_index\": 7,\n    \"action\": \"prefill\",\n    \"selector\": \"#txtMobileNo\",\n    \"field_type\": \"text\",\n    \"value\": null,\n    \"timestamp\": 1761749677617,\n    \"sourceUrl\": \"https://www.gglengage.com/login.aspx\",\n    \"_instanceId\": \"1761749676189-3236\",\n    \"element_type\": null,\n    \"input_type\": null,\n    \"section_label\": \"Unknown Section\",\n    \"url\": \"https://www.gglengage.com/login.aspx\"\n  },\n  {\n    \"action_index\": 8,\n    \"action\": \"prefill\",\n    \"selector\": \"#txtPassword\",\n    \"field_type\": \"password\",\n    \"value\": \"****\",\n    \"timestamp\": 1761749677617,\n    \"sourceUrl\": \"https://www.gglengage.com/login.aspx\",\n    \"_instanceId\": \"1761749676189-3236\",\n    \"element_type\": null,\n    \"input_type\": null,\n    \"section_label\": \"Unknown Section\",\n    \"url\": \"https://www.gglengage.com/login.aspx\"\n  },\n  {\n    \"action_index\": 9,\n    \"action\": \"screenshot_full\",\n    \"tabId\": 185299349,\n    \"timestamp\": 1761749682702,\n    \"screenshot\": \"https://i.ibb.co/gZgCcL8d/a20c7acbf2a7.jpg\",\n    \"modal\": \"Unknown Modal\"\n  },\n  {\n    \"action_index\": 10,\n    \"action\": \"click\",\n    \"visibleText\": \"ACCEPT\",\n    \"sourceUrl\": \"https://www.gglengage.com/login.aspx\",\n    \"destinationUrl\": null,\n    \"section_label\": \"Unknown Section\",\n    \"x\": 615,\n    \"y\": 714,\n    \"timestamp\": 1761749684829,\n    \"text\": null\n  },\n  {\n    \"action_index\": 11,\n    \"action\": \"modal_closed\",\n    \"url\": \"https://www.gglengage.com/login.aspx\",\n    \"timestamp\": 1761749685154,\n    \"tabId\": 185299349,\n    \"modal_name\": \"Unknown Modal\",\n    \"section_labels\": [\n      \"1. Media Section\",\n      \"2. Previous Next\"\n    ],\n    \"isModal\": true\n  },\n  {\n    \"action_index\": 12,\n    \"action\": \"type\",\n    \"selector\": \"#txtMobileNo\",\n    \"field_type\": \"text\",\n    \"value\": \"7318203243\",\n    \"timestamp\": 1761749685774,\n    \"url\": \"https://www.gglengage.com/login.aspx\",\n    \"user_initiated\": true,\n    \"_instanceId\": \"1761749676189-3236\",\n    \"_pageAtSend\": \"https://www.gglengage.com/login.aspx\",\n    \"element_type\": null,\n    \"input_type\": null,\n    \"section_label\": \"Unknown Section\"\n  },\n  {\n    \"action_index\": 13,\n    \"action\": \"screenshot_full\",\n    \"tabId\": 185299349,\n    \"timestamp\": 1761749687631,\n    \"screenshot\": \"https://i.ibb.co/r2JVWRkL/b2c584784ed5.jpg\",\n    \"modal_closed\": true\n  },\n  {\n    \"action_index\": 14,\n    \"action\": \"form_submit\",\n    \"form_action\": \"https://www.gglengage.com/login.aspx\",\n    \"method\": \"POST\",\n    \"fields\": [\n      {\n        \"name\": \"__EVENTTARGET\",\n        \"type\": \"hidden\"\n      },\n      {\n        \"name\": \"__EVENTARGUMENT\",\n        \"type\": \"hidden\"\n      },\n      {\n        \"name\": \"__LASTFOCUS\",\n        \"type\": \"hidden\"\n      },\n      {\n        \"name\": \"__VIEWSTATE\",\n        \"type\": \"hidden\"\n      },\n      {\n        \"name\": \"__VIEWSTATEGENERATOR\",\n        \"type\": \"hidden\"\n      },\n      {\n        \"name\": \"__EVENTVALIDATION\",\n        \"type\": \"hidden\"\n      },\n      {\n        \"name\": \"RadioLogin\",\n        \"type\": \"radio\"\n      },\n      {\n        \"name\": \"RadioLogin\",\n        \"type\": \"radio\"\n      },\n      {\n        \"name\": \"RadioCustomer\",\n        \"type\": \"radio\"\n      },\n      {\n        \"name\": \"RadioCustomer\",\n        \"type\": \"radio\"\n      },\n      {\n        \"name\": \"txtUserName\",\n        \"type\": \"text\"\n      },\n      {\n        \"name\": \"txtMobileNo\",\n        \"type\": \"text\"\n      },\n      {\n        \"name\": \"txtCID\",\n        \"type\": \"text\"\n      },\n      {\n        \"name\": \"txtPassword\",\n        \"type\": \"password\"\n      },\n      {\n        \"name\": \"btnsubmit\",\n        \"type\": \"submit\"\n      },\n      {\n        \"name\": \"Button1\",\n        \"type\": \"submit\"\n      },\n      {\n        \"name\": \"txtValue\",\n        \"type\": \"text\"\n      }\n    ],\n    \"trigger\": \"submit_button\",\n    \"timestamp\": 1761749695460,\n    \"url\": \"https://www.gglengage.com/login.aspx\",\n    \"_instanceId\": \"1761749676189-3236\",\n    \"_pageAtSend\": \"https://www.gglengage.com/login.aspx\",\n    \"element_type\": null,\n    \"input_type\": null,\n    \"section_label\": \"Unknown Section\"\n  },\n  {\n    \"action_index\": 15,\n    \"action\": \"navigate\",\n    \"sourceUrl\": \"https://www.gglengage.com/login.aspx\",\n    \"destinationUrl\": \"https://www.gglengage.com/CustomerDashboard.aspx\",\n    \"timestamp\": 1761749704088,\n    \"tabId\": 185299349\n  },\n  {\n    \"action_index\": 16,\n    \"action\": \"screenshot_full\",\n    \"tabId\": 185299349,\n    \"timestamp\": 1761749704088,\n    \"screenshot\": \"https://i.ibb.co/XrR7vSLw/b54848c2bb89.jpg\"\n  },\n  {\n    \"action_index\": 17,\n    \"action\": \"click\",\n    \"visibleText\": \"510070100010174\\n510070100010291\",\n    \"sourceUrl\": \"https://www.gglengage.com/CustomerDashboard.aspx\",\n    \"destinationUrl\": \"https://www.gglengage.com/CustomerDashboard.aspx\",\n    \"section_label\": \"1. Current Bill\",\n    \"x\": 426,\n    \"y\": 291,\n    \"timestamp\": 1761749722976,\n    \"text\": null\n  },\n  {\n    \"action_index\": 18,\n    \"action\": \"section_duration\",\n    \"url\": \"https://www.gglengage.com/CustomerDashboard.aspx\",\n    \"timestamp\": 1761749725195,\n    \"durations\": {\n      \"1. Current Bill\": {\n        \"totalTimeSpent\": 10867\n      },\n      \"2. Quick Links\": {\n        \"totalTimeSpent\": 10867\n      },\n      \"3. Bill DateN/A CRN 510070100010174 510070100010291 Due DateN/A\": {\n        \"totalTimeSpent\": 10867\n      },\n      \"4. Payable Amount\": {\n        \"totalTimeSpent\": 10867\n      },\n      \"5. Unknown Section\": {\n        \"totalTimeSpent\": 10867\n      },\n      \"6. Previous Bill\": {\n        \"totalTimeSpent\": 10867\n      },\n      \"7. Account Statement Previous Bill Connection 510070100010174 510070100010291\": {\n        \"totalTimeSpent\": 10867\n      }\n    },\n    \"_instanceId\": \"1761749695667-6670\",\n    \"_pageAtSend\": \"https://www.gglengage.com/CustomerDashboard.aspx\",\n    \"element_type\": null,\n    \"input_type\": null,\n    \"section_label\": \"Unknown Section\"\n  },\n  {\n    \"action_index\": 19,\n    \"action\": \"modal_appeared\",\n    \"url\": \"https://www.gglengage.com/login.aspx\",\n    \"timestamp\": 1761749737636,\n    \"tabId\": 185299349,\n    \"modal_name\": \"Unknown Modal\",\n    \"section_labels\": [\n      \"1. Green Gas Limited Cashless Notification. Please Click Accept To Enter GGL Engage\",\n      \"2. Unknown Section\"\n    ],\n    \"isModal\": true\n  },\n  {\n    \"action_index\": 20,\n    \"action\": \"screenshot_full\",\n    \"tabId\": 185299349,\n    \"timestamp\": 1761749739733,\n    \"screenshot\": \"https://i.ibb.co/jZB8B64m/4fa84ffca0b2.jpg\",\n    \"modal\": \"Unknown Modal\"\n  },\n  {\n    \"action_index\": 21,\n    \"action\": \"navigate\",\n    \"sourceUrl\": \"https://www.gglengage.com/CustomerDashboard.aspx\",\n    \"destinationUrl\": \"https://www.gglengage.com/login.aspx\",\n    \"timestamp\": 1761749743891,\n    \"tabId\": 185299349\n  },\n  {\n    \"action_index\": 22,\n    \"action\": \"click\",\n    \"visibleText\": \"ACCEPT\",\n    \"sourceUrl\": \"https://www.gglengage.com/login.aspx\",\n    \"destinationUrl\": null,\n    \"section_label\": \"Unknown Section\",\n    \"x\": 602,\n    \"y\": 705,\n    \"timestamp\": 1761749748747,\n    \"text\": null\n  },\n  {\n    \"action_index\": 23,\n    \"action\": \"modal_closed\",\n    \"url\": \"https://www.gglengage.com/login.aspx\",\n    \"timestamp\": 1761749749072,\n    \"tabId\": 185299349,\n    \"modal_name\": \"Unknown Modal\",\n    \"section_labels\": [\n      \"1. Media Section\",\n      \"2. Previous Next\"\n    ],\n    \"isModal\": true\n  },\n  {\n    \"action_index\": 24,\n    \"action\": \"screenshot_full\",\n    \"tabId\": 185299349,\n    \"timestamp\": 1761749751499,\n    \"screenshot\": \"https://i.ibb.co/qTVf1T1/d53ec8a42479.jpg\",\n    \"modal_closed\": true\n  },\n  {\n    \"action_index\": 25,\n    \"action\": \"session_end\",\n    \"timestamp\": 1761749763684,\n    \"url\": \"https://www.gglengage.com/login.aspx\",\n    \"meta\": {\n      \"message\": \"Recording session ended\"\n    }\n  },\n  {\n    \"action_index\": 26,\n    \"action\": \"section_duration\",\n    \"url\": \"https://www.gglengage.com/\",\n    \"timestamp\": 1761749764891,\n    \"durations\": {\n      \"1. Unknown Section\": {\n        \"totalTimeSpent\": 8986\n      },\n      \"2. CAUTION NOTICE - BEWARE OF FRAUDULENT CALL FOR DUE PAYMENT ×\": {\n        \"totalTimeSpent\": 8986\n      }\n    }\n  }\n]"
+      }
+    ]
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c33ae80582838b3b98442df90461b31a6c5c881372c4412924f512290076ba6c"
+  }
+}
