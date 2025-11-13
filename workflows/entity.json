@@ -17,6 +17,7 @@
       "webhookId": "c8275f6f-40c4-45c1-92b6-b71b165aa6c4"
     },
     {
+      
       "parameters": {},
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
