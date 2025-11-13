@@ -84,12 +84,14 @@ Messages are sent when:
 
 Example JSON sent by the workflow:
 
+```
 POST /api/compose
 {
 "to": "u/atulsingh369",
 "subject": "Regarding your recent post",
 "text": "Hi, this is an automated message from the mod team .."
 }
+```
 
 ---
 
